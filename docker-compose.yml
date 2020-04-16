@@ -1,0 +1,158 @@
+version: '3'
+
+# 设置网络公共参数（下面镜像构建可以用到）
+networks:
+  prodnetwork:
+    driver: bridge
+
+# 设置卷公共参数(此处设置，下面用到时候赋值，别人用到时候直接就可以用了，这里类似声明变量)
+#volumes:
+#  redis-data:
+
+services:
+  nexus:
+    # always用于设置重启docker时重启容器
+    restart: always
+    # 镜像
+    image: sonatype/nexus3
+    # 别名
+    container_name: nexus3
+    # 端口映射
+    ports:
+      - "18081:8081"
+    # 设置网络方式（https://www.jb51.net/article/148061.htm）
+    networks:
+      - prodnetwork
+    volumes:
+      - /root/docker_ci/nexus-data:/nexus-data:Z
+  jenkins:
+    restart: always
+    image: jenkins/jenkins
+    ports:
+      - "18080:8080"
+    networks:
+      - prodnetwork
+    volumes:
+      - /root/docker_ci/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - /root/docker_ci/jenkins-data:/var/jenkins_home:Z
+    # 关联镜像
+    depends_on:
+      - nexus
+    # 设置环境变量
+    environment:
+      - NEXUS_PORT=8081
+      - SONAR_PORT=9000
+      - SONAR_DB_PORT=5432
+  # redis
+  redis:
+    restart: always
+    image: sameersbn/redis
+    command:
+    - --loglevel warning
+    volumes:
+    - /root/docker_ci/postgresql-data:/var/lib/redis:Z
+  # postgresql
+  postgresql:
+    restart: always
+    image: sameersbn/postgresql:10-2
+    volumes:
+    - /root/docker_ci/postgresql-data:/var/lib/postgresql:Z
+    environment:
+    - DB_USER=gitlab
+    - DB_PASS=password
+    - DB_NAME=gitlabhq_production
+    - DB_EXTENSION=pg_trgm
+  # Gitlab
+  gitlab:
+    restart: always
+    image: sameersbn/gitlab:12.9.2
+    depends_on:
+    - redis
+    - postgresql
+    ports:
+    - "8888:80"
+    - "9022:22"
+    - "9443:443"
+    volumes:
+    - /root/docker_ci/gitlab-data:/home/git/data:Z
+    environment:
+    - DEBUG=false
+    - DB_ADAPTER=gitlab_postgresql
+    - DB_HOST=gitlab_postgresql
+    - DB_PORT=5432
+    - DB_USER=gitlab
+    - DB_PASS=password
+    - DB_NAME=gitlabhq_production
+
+    - REDIS_HOST=gitlab_redis
+    - REDIS_PORT=6379
+
+    - TZ=Asia/Kolkata
+    - GITLAB_TIMEZONE=Kolkata
+
+    - GITLAB_HTTPS=false
+    - SSL_SELF_SIGNED=false
+
+    - GITLAB_HOST=localhost
+    - GITLAB_PORT=10080
+    - GITLAB_SSH_PORT=10022
+    - GITLAB_RELATIVE_URL_ROOT=
+    - GITLAB_SECRETS_DB_KEY_BASE=long-and-random-alphanumeric-string
+    - GITLAB_SECRETS_SECRET_KEY_BASE=long-and-random-alphanumeric-string
+    - GITLAB_SECRETS_OTP_KEY_BASE=long-and-random-alphanumeric-string
+
+    - GITLAB_ROOT_PASSWORD=
+    - GITLAB_ROOT_EMAIL=
+
+    - GITLAB_NOTIFY_ON_BROKEN_BUILDS=true
+    - GITLAB_NOTIFY_PUSHER=false
+
+    - GITLAB_EMAIL=notifications@example.com
+    - GITLAB_EMAIL_REPLY_TO=noreply@example.com
+    - GITLAB_INCOMING_EMAIL_ADDRESS=reply@example.com
+
+    - GITLAB_BACKUP_SCHEDULE=daily
+    - GITLAB_BACKUP_TIME=01:00
+
+    - SMTP_ENABLED=false
+    - SMTP_DOMAIN=www.example.com
+    - SMTP_HOST=smtp.gmail.com
+    - SMTP_PORT=587
+    - SMTP_USER=mailer@example.com
+    - SMTP_PASS=password
+    - SMTP_STARTTLS=true
+    - SMTP_AUTHENTICATION=login
+
+    - IMAP_ENABLED=false
+    - IMAP_HOST=imap.gmail.com
+    - IMAP_PORT=993
+    - IMAP_USER=mailer@example.com
+    - IMAP_PASS=password
+    - IMAP_SSL=true
+    - IMAP_STARTTLS=false
+    - GITLAB_PAGES_ENABLED=true
+    - GITLAB_PAGES_ACCESS_CONTROL=true
+    - GITLAB_PAGES_ACCESS_CONTROL_SERVER=http://192.168.0.176
+
+
+##########################################################################################
+# DISABLED: GitLab takes too much memory and CPU. Demo uses GitHub repositories instead.
+#
+#  gitlab:
+#    image: gitlab/gitlab-ce:latest
+#    restart: always
+#    networks:
+#      - prodnetwork
+#    environment:
+#      GITLAB_OMNIBUS_CONFIG: |
+#        # external_url 'https://gitlab.example.com'
+#        # Add any other gitlab.rb configuration here, each on its own line
+#    ports:
+#      - "10080:80"
+#      - "10443:443"
+#      - "10022:22"
+#    volumes:
+#      - /opt/gitlab/config:/etc/gitlab
+#      - /opt/gitlab/logs:/var/log/gitlab
+#      - /opt/gitlab/data:/var/opt/gitlab
