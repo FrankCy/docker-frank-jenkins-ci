@@ -1,105 +1,38 @@
 version: '3'
 
-# 设置网络公共参数（下面镜像构建可以用到）
-networks:
-  prodnetwork:
-    driver: bridge
-
-# 设置卷公共参数(此处设置，下面用到时候赋值，别人用到时候直接就可以用了，这里类似声明变量)
-#volumes:
-#  redis-data:
-
 services:
-  #  nexus:
-  #    # always用于设置重启docker时重启容器
-  #    restart: always
-  #    # 镜像
-  #    image: sonatype/nexus3
-  #    # 别名
-  #    container_name: nexus3
-  #    # 端口映射
-  #    ports:
-  #      - "18081:8081"
-  #    # 设置网络方式（https://www.jb51.net/article/148061.htm）
-  #    networks:
-  #      - prodnetwork
-  #    volumes:
-  #      - /root/docker_ci/nexus-data:/nexus-data:Z
-  jenkins:
-    restart: always
-    privileged: true
-    image: jenkins/jenkins:lts
-    container_name: jenkins
-    ports:
-      - "8077:8080"
-    networks:
-      - prodnetwork
-    volumes:
-      - /Users/cy/ci/docker_ci/run/docker.sock:/var/run/docker.sock
-      - /var/lib/docker:/usr/bin/docker
-      - /Users/cy/ci/docker_ci/jenkins-data:/var:Z
-    # 关联镜像
-    #    depends_on:
-    #      - nexus
-    # 设置环境变量
-  #    environment:
-  #      - NEXUS_PORT=8081
-  #      - SONAR_PORT=9000
-  #      - SONAR_DB_PORT=5432
-  # redis
-  #  redis:
-  #    restart: always
-  #    image: sameersbn/redis
-  #    command:
-  #    - --loglevel warning
-  #    volumes:
-  #    - /root/docker_ci/postgresql-data:/var/lib/redis:Z
-  # postgresql
-  #  postgresql:
-  #    restart: always
-  #    image: sameersbn/postgresql:10-2
-  #    volumes:
-  #    - /root/docker_ci/postgresql-data:/var/lib/postgresql:Z
-  #    environment:
-  #    - DB_USER=gitlab
-  #    - DB_PASS=password
-  #    - DB_NAME=gitlabhq_production
-  #    - DB_EXTENSION=pg_trgm
-  # Gitlab
-  gitlab:
-    restart: always
-    privileged: true
-    image: gitlab/gitlab-ce:latest
-    container_name: gitlab
-    # 设置特权启动，否则挂载的本地目录无效
-    #    depends_on:
-    #    - redis
-    #    - postgresql
-    ports:
-      - "9443:443"
-      - "8999:8888"
-      - "9022:22"
-    volumes:
-      - /Users/cy/ci/docker_ci/gitlab-config:/etc/gitlab:Z
-      - /Users/cy/ci/docker_ci/gitlab-data:/var/opt/gitlab
-      - /Users/cy/ci/docker_ci/gitlab-log:/var/log/gitlab
   # 数据库审计工具
+#  yearning:
+#    image: registry.cn-hangzhou.aliyuncs.com/cookie/yearning:v1.3.4
+#    container_name: yearning
+#    ports:
+#      - "8078:80"
+#      - "8000:8000"
+#    environment:
+#      HOST: 10.10.10.10
+#      MYSQL_PASSWORD: root
+#      MYSQL_USER: root
+#      MYSQL_ADDR: 192.168.0.149:3306
+#      MYSQL_DATABASE: yearning
   yearning:
-    #    restart的几种属性及解释
-    #    no，默认策略，在容器退出时不重启容器
-    #    on-failure，在容器非正常退出时（退出状态非0），才会重启容器
-    #    on-failure:3，在容器非正常退出时重启容器，最多重启3次
-    #    always，在容器退出时总是重启容器
-    #    unless-stopped，在容器退出时总是重启容器，但是不考虑在Docker守护进程启动时就已经停止了的容器
-    restart: always
-    privileged: true
-    image: zhangsean/yearning
-    container_name: yearning
-    ports:
-      - "7890:8000"
+    image: registry.cn-hangzhou.aliyuncs.com/cookie/yearning:v1.3.4
+    depends_on:
+      - mysql
     environment:
-      - MYSQL_ADDR=127.0.0.1:3306
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=root
-      - MYSQL_DB=yearning
-# https://www.jianshu.com/p/ee0c8ed4795e
+      MYSQL_USER: yearning
+      MYSQL_PASSWORD: ukC2ZkcG_ZTeb
+      MYSQL_ADDR: mysql
+      MYSQL_DB: yearning
+    ports:
+      - 8000:8000
+      - 8078:80
+  mysql:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: ukC2ZkcG_ZTeb
+      MYSQL_DATABASE: yearning
+      MYSQL_USER: yearning
+      MYSQL_PASSWORD: ukC2ZkcG_ZTeb
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
